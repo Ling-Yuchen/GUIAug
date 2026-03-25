@@ -13,6 +13,7 @@ An LLM-powered platform for **recording**, **replaying**, and **automatically au
   - [Intelligent Replay](#2-intelligent-replay)
   - [Script Mutation / Augmentation](#3-script-mutation--augmentation)
 - [Project Structure](#project-structure)
+- [Subject Apps](#subject-apps)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Backend Setup](#backend-setup)
@@ -204,6 +205,14 @@ GUIAug/
         └── components/
             └── Home.vue                         # Main UI component (~1000 lines)
 ```
+
+---
+
+## Subject Apps
+
+The Android applications used as subjects in our experiments are available for download:
+
+[**Download Subject Apps (Google Drive)**](https://drive.google.com/file/d/1iaUdI0auMUt44eggFGaIPW-oXPQGcpEz/view?usp=sharing)
 
 ---
 
