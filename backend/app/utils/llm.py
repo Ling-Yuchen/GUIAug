@@ -16,8 +16,8 @@ api_price = {
 }
 
 gpt_client = OpenAI(
-    base_url="https://openkey.cloud/v1",
-    api_key="sk-W3yDQimM8K1CvCAO004eA7815dB84eE4Be5c3394Bc98D457"
+    base_url="",
+    api_key=""
 )
 
 custom_client = OpenAI(
@@ -26,8 +26,8 @@ custom_client = OpenAI(
 )
 
 qwen_client = OpenAI(
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    api_key="sk-8f39701e6c0b499d87add5ad93329c17"
+    base_url="",
+    api_key=""
 )
 
 

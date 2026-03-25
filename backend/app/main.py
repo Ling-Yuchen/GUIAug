@@ -8,7 +8,6 @@ from app.controllers.record_controller import record_controller
 from app.controllers.mutate_controller import mutate_controller
 
 os.environ["PATH"] += ":/opt/android/sdk/platform-tools"
-os.environ["PATH"] += ":/home/lyc/harmony-command-line-tools/sdk/default/openharmony/toolchains"
 
 app = FastAPI()
 
