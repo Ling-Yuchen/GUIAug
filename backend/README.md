@@ -1,36 +1,36 @@
-### 代码结构
+### Code Structure
 
-- app目录：后端代码
+- **app/** — Backend source code
 
-    - controllers目录：前端对接的接口的定义与实现
-  
-        - device_controller.py：物理设备相关的操作
-        - record_controller.py：脚本录制回放相关的操作
-        - mutate_controller.py：脚本扩增相关的操作
+    - **controllers/** — API endpoint definitions and implementations (interfacing with the frontend)
 
-    - service目录：服务接口定义与实现
+        - `device_controller.py` — Physical device operations
+        - `record_controller.py` — Script recording and replay operations
+        - `mutate_controller.py` — Script augmentation / mutation operations
 
-        - device_service.py：物理设备相关的操作
-        - image_service.py：图像处理相关的操作
-        - script_service.py：脚本录制回放相关的操作
-        - mutation_service.py：脚本扩增相关的操作
-        - implements目录：接口的具体实现
-  
-    - db目录：定义数据库连接和数据库操作
+    - **services/** — Service interface definitions and implementations
 
-    - models目录：定义必要的数据结构
+        - `device_service.py` — Physical device operations
+        - `image_service.py` — Image processing operations
+        - `script_service.py` — Script recording and replay operations
+        - `mutation_service.py` — Script augmentation / mutation operations
+        - **implements/** — Concrete implementations of the service interfaces
 
-    - utils目录：java函数调用、控件提取，工具函数
+    - **db/** — Database connection and database operations
 
-    - create_tables.py：根据定义的schema创建数据库表
-    
-- main.py：fastapi应用主入口
+    - **models/** — Data structure definitions
 
-- data目录：保存脚本录制所记录的相关数据，如屏幕截图、控件截图、layout文件等
+    - **utils/** — Utility functions including Java function calls and widget extraction
+
+    - `create_tables.py` — Creates database tables based on the defined schema
+
+- `main.py` — FastAPI application entry point
+
+- **data/** — Stores data recorded during script recording, such as screenshots, widget images, layout files, etc.
 ```text
- ├─log 
- ├─screenshots 
- ├─scripts 
+ ├─log
+ ├─screenshots
+ ├─scripts
  ├─temp
   ├─ip
   ├─merge
@@ -39,17 +39,15 @@
  ├─ui_xml
 ```
 
-- main.py：后端启动的入口文件
-
-### 运行环境
+### Environment Setup
 
 - `conda create -n guiaug python=3.10`
 - `conda activate guiaug`
 - `pip install -r requirements.txt`
 
-- 运行create_tables.py，创建表
+- Run `create_tables.py` to create the database tables
 
-### 后端启动
+### Starting the Backend
 
-- 连接设备，确保 `adb devices` 能够检测到设备
-- 根目录下执行命令 `uvicorn app.main:app --reload` 或 `python main.py`
+- Connect a device and make sure `adb devices` can detect it
+- Run the following command from the project root: `uvicorn app.main:app --reload` or `python main.py`
