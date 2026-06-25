@@ -274,6 +274,55 @@ class AndroidScriptServiceImpl(ScriptService):
         }
         return tap_input_step_dict
 
+    def record_back(
+            self,
+            db: Session,
+            script_id: str,
+            script_folder: str,
+            screen_path: str,
+            ui_dump_path: str,
+            package: str,
+            activity: str,
+            op_prev: Optional[str],
+            op_next: Optional[str],
+            intent: str = "",
+    ):
+        step_id = gen_step_id(op_prev, op_next)
+        script_folder = self.script_path / script_folder
+        step_folder = script_folder / step_id
+        step_folder.mkdir(exist_ok=True)
+        shutil.copy(screen_path, str(step_folder / "screen.jpeg"))
+        shutil.copy(ui_dump_path, str(step_folder / "ui_layout.xml"))
+
+        back_step = OperationModel(
+            script_id=script_id,
+            op_id=step_id,
+            op_type="back",
+            op_params=json.dumps([]),
+            widget_bbox=str((-1, -1, -1, -1)),
+            widget_desc="system back navigation",
+            op_folder=step_id,
+            timestamp=datetime.now(),
+            package=package,
+            activity=activity,
+            intent=intent,
+            mutate_type="NONE",
+            mutate_reason="",
+        )
+        create_operation(db, back_step)
+        return {
+            "op_id": step_id,
+            "op_params": [],
+            "op_type": "back",
+            "widget_desc": "system back navigation",
+            "package": package,
+            "activity": activity,
+            "op_folder": str(step_folder),
+            "script_folder": str(script_folder),
+            "widget_img": "",
+            "require_input": False,
+        }
+
     def record_oracle(
             self,
             db: Session,
@@ -412,6 +461,8 @@ class AndroidScriptServiceImpl(ScriptService):
         return script_id_new
 
     def abstract_operation(self, op_dict: Dict[str, Any], script_folder: str, prev_ops: List[Dict[str, Any]]) -> str:
+        if op_dict["op_type"] == "back":
+            return "press the system back button to return to the previous GUI state"
         if op_dict["op_type"] != "assert":
             op_folder = op_dict["op_folder"]
             screenshot_path = self.script_path / script_folder / op_folder / "screen.jpeg"

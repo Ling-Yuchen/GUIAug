@@ -107,7 +107,7 @@ def update_script_desc(db: Session, script_id: str, new_desc: str):
 def update_script_mutate(db: Session, script_id: str, val: bool):
     script = db.query(Script).filter(Script.script_id == script_id).first()
     if script:
-        script.mutated_ready = val
+        script.mutate_ready = val
         db.commit()
         db.refresh(script)
 
@@ -181,4 +181,3 @@ def update_intention_by_step_id(db: Session, step_id: str, new_intention: str):
         operation.intent = new_intention
         db.commit()
         db.refresh(operation)
-

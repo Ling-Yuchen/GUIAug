@@ -250,6 +250,10 @@ class RecordController:
             print(f"operation replayed: {op['op_type']} (10, 10, {text})")
             return f"operation replayed: {op['op_type']} (10, 10, {text})"
 
+        if op["op_type"] == "back":
+            device_service.perform_back(device_id)
+            return "operation replayed: back"
+
         if op["op_type"] == "scroll":
             w_src, h_src = get_img_shape(screen_path_src)
             w_dst, h_dst = get_img_shape(screen_path_dst)

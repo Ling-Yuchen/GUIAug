@@ -67,6 +67,128 @@ Focus on the user goal or the test purpose. Keep the tone formal and task-orient
 Return your response in JSON format: {result: "... (be brief and abstract)"}
 """.strip()
 
+operation_semantic_descriptor_prompt = """
+You are interpreting one operation in a seed-based mobile GUI test script.
+Use the accumulated workflow context and the attached pre-action screenshot
+(and target-widget crop when available) to recover the operation semantics.
+
+Accumulated descriptors:
+{PREVIOUS-DESCRIPTORS}
+
+Current operation:
+- id: {OPERATION-ID}
+- type: {OPERATION-TYPE}
+- existing description: {OPERATION-INTENT}
+- input text: {INPUT-TEXT}
+
+Return JSON only:
+{
+  "description": "<what the action does and its local intent>",
+  "preconditions": ["<GUI/workflow condition required before the action>"],
+  "expected_effects": ["<observable or workflow effect expected after the action>"],
+  "involved_widgets": ["<visible widget or control>"],
+  "references": ["<prior input/assertion/operation id referenced by this action>"]
+}
+""".strip()
+
+scenario_dependency_recovery_prompt = """
+You are recovering the semantic structure of a seed mobile GUI test script.
+
+Script description:
+{SCRIPT-DESCRIPTION}
+
+Operation descriptors:
+{OPERATION-DESCRIPTORS}
+
+Assertions:
+{ASSERTIONS}
+
+Produce:
+1. A scenario abstraction covering the interaction goal, important
+   preconditions, reachable GUI states, and assertion targets.
+2. A lightweight dependency graph. Edge type must be one of state, data, or
+   oracle. Use only operation ids listed above. Dependencies must point forward
+   in execution order, except an oracle edge whose destination is an assertion.
+
+Return JSON only:
+{
+  "scenario": {
+    "goal": "<seed scenario goal>",
+    "preconditions": ["..."],
+    "reachable_states": ["..."],
+    "assertion_targets": ["..."]
+  },
+  "dependencies": [
+    {
+      "src": "<operation id>",
+      "dst": "<later operation/assertion id>",
+      "type": "state|data|oracle",
+      "rationale": "<brief reason>"
+    }
+  ]
+}
+""".strip()
+
+input_role_analysis_prompt = """
+Analyze the semantic role and constraints of one text-input operation in a
+seed-based GUI test script.
+
+Scenario abstraction:
+{SCENARIO}
+
+Local descriptor:
+{DESCRIPTOR}
+
+Original input operation:
+{INPUT-OPERATION}
+
+Downstream dependency edges:
+{DEPENDENCIES}
+
+Return JSON only:
+{
+  "role": "<query keyword, destination, phone number, message body, etc.>",
+  "constraints": {
+    "format": ["..."],
+    "domain": ["..."],
+    "downstream_anchors": ["<operation id>"],
+    "expected_response_types": ["success", "error", "empty result", "..."]
+  }
+}
+""".strip()
+
+input_suffix_adaptation_goal_prompt = """
+You are adapting the suffix of a seed-based mobile GUI test after an input
+mutation made the original continuation infeasible.
+
+Scenario abstraction:
+{SCENARIO}
+
+Mutated input:
+{MUTATED-INPUT}
+
+Original suffix:
+{ORIGINAL-SUFFIX}
+
+Executed trace before divergence:
+{EXECUTED-TRACE}
+
+Current divergence state is shown in the attached screenshot.
+
+Formulate one bounded continuation goal that stays coherent with the mutated
+input and remains reasonably connected to the seed scenario. The goal may
+recover an analogous positive outcome or terminate at observable negative
+feedback.
+
+Return JSON only:
+{
+  "goal": "<continuation goal>",
+  "expected_outcome": "ALTERNATIVE",
+  "success_signals": ["<observable terminal evidence>"],
+  "reason": "<brief rationale>"
+}
+""".strip()
+
 input_type_query_prompt = """
 You are an assistant analyzing GUI test scripts for mobile apps.
 Each step in the script describes a user action in natural language.
@@ -595,6 +717,12 @@ but also how valuable those branches are — in terms of functional diversity, c
 Full GUI Test Script:
 {SCRIPT_OPERATIONS}
 Candidate Operation: {CANDIDATE_OPERATION}
+Descriptor Prefix:
+{DESCRIPTOR-PREFIX}
+Current Descriptor:
+{CURRENT-DESCRIPTOR}
+Descriptor Suffix:
+{DESCRIPTOR-SUFFIX}
 Widget Screenshot: Image of the UI widget targeted by the candidate operation. (see the uploaded images)
 App Screenshot: Image of the app screen right before the candidate operation executes. (see the uploaded images)
 
@@ -621,7 +749,8 @@ Return a JSON object:
 {
   "state_inference": "<brief summary of the app screen (app state)>",
   "branching_value_score": <int, 0-5>,
-  "reason": "<brief explanation of the judgment>"
+  "reason": "<brief explanation of the judgment>",
+  "possible_branch_directions": ["<sibling feature, alternative item, related menu, or error-handling direction>"]
 }
 """.strip()
 
@@ -643,12 +772,19 @@ Retained Part of Original Test Script:
 {RETAINED_OPERATIONS}
 Current Screen Screenshot (after retained operations): (see the uploaded image)
 The screenshot will give context on the current state of the app after the retained actions, which will be useful to define the new goal for the test script.
+Scenario Abstraction:
+{SCENARIO-ABSTRACTION}
+Dependencies Around the Branch Point:
+{BRANCH-DEPENDENCIES}
 
 ## Output Format
 Return a JSON object containing the following fields:
 {
   "goal": "<A concise and specific goal statement describing the expected target of the new test script>",
-  "reason": "<Explanation of how this goal relates to the retained operations and the current screen state after these operations>"
+  "reason": "<Explanation of how this goal relates to the retained operations and the current screen state after these operations>",
+  "discouraged_actions": ["<actions that merely repeat the seed suffix or leave the scenario>"],
+  "success_signals": ["<observable evidence that the goal is satisfied>"],
+  "terminal_evidence": ["<text, navigation state, error feedback, or visible change>"]
 }
 
 ## Example
@@ -722,6 +858,8 @@ The description should focus on observable elements, such as button states, text
 
 ## Inputs
 Operation Description: {OPERATION_DESCRIPTION}
+Branch Goal: {BRANCH-GOAL}
+Generated Continuation: {GENERATED-CONTINUATION}
 Post-execution Screenshot: (see the uploaded image)
 
 ## Output Format
@@ -761,7 +899,7 @@ Return a JSON object:
   "goal_understanding": "<concise explanation of what the expected goal requires>",
   "script_analysis": "<summary of the behavior and intention of the current script>",
   "screenshot_analysis": "<what is visible or missing in Latest Screenshot relevant to the goal>",
-  "judgement": "success" | "partial",
+  "judgement": "SATISFIED" | "ONGOING",
   "reason": "<concise reasoning that justifies the final judgement>",
 }
 
@@ -779,7 +917,7 @@ Expected Output:
   "goal_understanding": "The goal requires uploading a new profile picture, saving the profile, and verifying that the updated picture appears on the profile summary page.",
   "script_analysis": "The script navigates to the profile editor and selects an image file, but it never saves the changes because the 'Save' action is missing.",
   "screenshot_analysis": "The screenshot shows the selected file 'avatar.png' in the edit form, but no indication of the profile being saved or the updated picture appearing in any preview or summary section.",
-  "judgement": "partial",
+  "judgement": "ONGOING",
   "reason": "The script partially completes the goal by selecting an image, but the lack of a save action prevents the profile picture from being applied or displayed. The goal cannot be fully achieved without committing the change."
 }
 """.strip()

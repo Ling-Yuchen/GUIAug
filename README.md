@@ -1,6 +1,6 @@
 # GUIAug
 
-An LLM-powered platform for **recording**, **replaying**, and **automatically augmenting** mobile GUI test scripts. GUIAug enables testers to record a single test script on a real device, then leverages large language models (GPT-4, Qwen) to intelligently mutate the script — generating a diverse set of new test cases that improve test coverage with minimal manual effort.
+Implementation of the paper **“Seed-based GUI Test Script Augmentation with Input Variation and Branch Exploration.”** GUIAug treats an existing replayable GUI test script as a **seed script** and derives executable, seed-local variant test cases through **Script Interpretation**, **Input-Aware Augmentation**, and **Intent-Aware Augmentation**.
 
 ---
 
@@ -11,7 +11,7 @@ An LLM-powered platform for **recording**, **replaying**, and **automatically au
 - [Core Features](#core-features)
   - [Script Recording](#1-script-recording)
   - [Intelligent Replay](#2-intelligent-replay)
-  - [Script Mutation / Augmentation](#3-script-mutation--augmentation)
+  - [Seed-based GUI Test Script Augmentation](#3-seed-based-gui-test-script-augmentation)
 - [Project Structure](#project-structure)
 - [Subject Apps](#subject-apps)
 - [Getting Started](#getting-started)
@@ -24,13 +24,17 @@ An LLM-powered platform for **recording**, **replaying**, and **automatically au
 
 ## Overview
 
-GUIAug addresses the challenge of creating comprehensive mobile GUI test suites. Manually writing test scripts is time-consuming and often results in limited coverage. GUIAug solves this by:
+GUIAug does not generate a complete test suite from scratch. It reuses the workflow, domain-specific inputs, GUI context, and assertions already encoded in a valid seed script, then expands the seed-local testing surface along input and path dimensions.
 
-1. **Recording** user interactions on a real Android or HarmonyOS device via a browser-based interface.
-2. **Replaying** recorded scripts with intelligent widget matching that adapts to UI changes.
-3. **Augmenting** scripts automatically through LLM-driven mutation — producing new test cases by varying input data and exploring alternative interaction paths.
+The current repository provides:
 
-The platform supports both **Android** (via ADB) and **HarmonyOS** devices.
+1. Recording and management of GUI operations and assertions.
+2. Replay on a physical Android device using visual and layout evidence.
+3. Script Interpretation that reconstructs operation descriptors, a scenario abstraction, and state/data/oracle dependencies.
+4. Input-Aware Augmentation with semantic input variation and assertion rebinding.
+5. Intent-Aware Augmentation with branch-point estimation, branch-goal formulation, runtime widget ranking, progress monitoring, and grounded assertion attachment.
+
+The active backend implementation targets **Android through ADB**. Some HarmonyOS-oriented types and commented integration code remain as historical scaffolding, but they are not part of the active paper-aligned execution path.
 
 ---
 
@@ -42,7 +46,7 @@ GUIAug follows a decoupled frontend-backend architecture:
 ┌──────────────────────────────────────────────────────────────┐
 │                        Frontend                              │
 │              Vue 3 + Naive UI + WebSocket                    │
-│    Screen mirroring · Script management · Mutation UI        │
+│   Screen mirroring · Seed scripts · Augmentation controls    │
 └───────────────────────────┬──────────────────────────────────┘
                             │  HTTP / WebSocket
 ┌───────────────────────────▼──────────────────────────────────┐
@@ -54,13 +58,13 @@ GUIAug follows a decoupled frontend-backend architecture:
 │         │                 │                  │               │
 │  ┌──────▼─────────────────▼──────────────────▼──────────────┐│
 │  │              Service Layer (Abstract + Impl)             ││
-│  │  DeviceService · ScriptService · ImageService            ││
-│  │  MutationService                                         ││
+│  │ DeviceService · ScriptService · ImageService             ││
+│  │ MutationService: interpretation/input-aware/intent-aware ││
 │  └──────────────────────────────────────────────────────────┘│
 │         │                 │                  │               │
 │  ┌──────▼──┐  ┌───────────▼───┐  ┌───────────▼────────────┐  │
-│  │  ADB /  │  │   MySQL       │  │  LLM APIs              │  │
-│  │  HDC    │  │  (SQLAlchemy) │  │  (GPT-4 / Qwen)        │  │
+│  │   ADB   │  │   MySQL       │  │  LLM APIs              │  │
+│  │ Android │  │  (SQLAlchemy) │  │  (GPT-4.1 / Qwen)      │  │
 │  └─────────┘  └───────────────┘  └────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -70,8 +74,8 @@ GUIAug follows a decoupled frontend-backend architecture:
 | **Frontend** | Vue 3, Naive UI, Axios, WebSocket | Device screen mirroring, script recording/replay UI, mutation interaction |
 | **Backend** | FastAPI, Uvicorn | REST API & WebSocket server for device control, script management, mutation logic |
 | **Database** | MySQL, SQLAlchemy, PyMySQL | Persistent storage for scripts and operations |
-| **AI / LLM** | OpenAI GPT-4o/4.1, Alibaba Qwen (via DashScope) | Intent description, input mutation, path mutation, semantic matching, assertion verification |
-| **Device Control** | ADB (Android), HDC (HarmonyOS) | Send commands to physical devices (tap, scroll, screenshot, UI dump) |
+| **AI / LLM** | OpenAI-compatible GPT-4.1 and Qwen clients | Semantic interpretation, input variation, branch exploration, and assertion generation/evaluation |
+| **Device Control** | ADB (Android) | Execute operations and capture screenshots/UI hierarchies on a physical device |
 | **Image Processing** | OpenCV, PaddleOCR, Pillow | Widget matching (SIFT/FLANN), template matching, OCR, bounding box detection |
 
 ---
@@ -91,7 +95,7 @@ Record test scripts by interacting with a real device through the browser:
   - Widget metadata (bounding box, description, XPath)
   - Current package name and activity
 - **Script management**: Create, rename, describe, insert/remove/edit operations, and discard scripts.
-- **LLM-generated descriptions**: Automatically generate natural language descriptions for each operation step and an overall script summary using LLMs.
+- **Seed semantics**: Generate natural-language operation descriptions and a script-level summary used by the Script Interpretation module.
 
 ### 2. Intelligent Replay
 
@@ -107,38 +111,46 @@ The system uses a **three-tier matching strategy** (in priority order):
 
 Each match result is validated using `check_match_validity` to ensure spatial consistency before execution.
 
-### 3. Script Mutation / Augmentation
+### 3. Seed-based GUI Test Script Augmentation
 
-The core innovation of GUIAug — automatically derive new test cases from a single recorded script:
+The augmentation workflow follows the three modules described in the paper.
 
-#### 3.1 Input Data Mutation (`INPUT-DATA`)
+#### 3.1 Script Interpretation
 
-Mutates text input operations using LLM-generated alternatives:
+Before augmentation, GUIAug lifts the flat seed trace into a semantic view:
 
-1. **Input type classification**: The LLM analyzes the script context to determine if each input is:
-   - **Content-oriented**: Free-form text (e.g., comments, nicknames) — any value is acceptable
-   - **Business-oriented**: Constrained input (e.g., phone numbers, search queries) — must follow specific rules
+- A sequential local descriptor for every operation, including description, inferred preconditions, expected effects, involved widgets, and references.
+- A script-level scenario abstraction containing the interaction goal, important preconditions, reachable GUI states, and assertion targets.
+- A lightweight typed dependency graph with **state**, **data**, and **oracle** edges. Invalid identifiers and backward temporal edges are filtered.
+- Input positions and branch points used by the two downstream augmentation modules.
+- A seed profile summarizing structural depth, input richness, and branchability.
 
-2. **Mutation generation**:
-   - *Content-oriented*: Length variation, language variation, character variation (emojis, special characters)
-   - *Business-oriented*: Rule-conforming mutations (valid alternatives) and rule-violating mutations (for testing validation logic)
+The semantic view is persisted as `backend/data/scripts/<script_id>/semantic_view.json` and can be retrieved with `GET /mutate/semantic_view/{script_id}`.
 
-3. **Assertion binding**: The LLM identifies which assertions are causally linked to the mutated input and automatically adjusts their expected outcomes to match the new input.
+#### 3.2 Input-Aware Augmentation (`INPUT-DATA`)
 
-#### 3.2 Path Mutation (`PATH`)
+For each semantically meaningful text-input operation, GUIAug:
 
-Explores alternative interaction paths from a mutation point:
+1. Infers the input role and constraint summary from the scenario abstraction, local descriptor, and downstream dependencies.
+2. Generates normal, boundary, long, invalid, or domain-specific candidate values.
+3. Creates direct-substitution scripts while preserving the seed prefix and suffix.
+4. Rebinds assertions that depend on the changed input.
+5. Persists augmentation provenance and the pending runtime outcome in `augmentation_context.json`.
 
-1. **Mutation point detection**: The LLM evaluates each tap operation in the script and scores its "branching value" — how likely it is that choosing a different action here would lead to interesting new behavior.
+The implementation retains the existing content-oriented/business-oriented classifier as the concrete value-generation strategy. Runtime replay can then determine whether the original suffix remains feasible; the persisted outcome metadata is designed for preserved, adapted, or terminal-negative continuations.
 
-2. **Goal generation**: A test goal is generated for the mutated path based on the original script context.
+#### 3.3 Intent-Aware Augmentation (`PATH`)
 
-3. **Autonomous exploration**: Starting from the mutation point, the LLM acts as a test agent:
-   - Observes the current screen (annotated with bounding boxes and widget indices)
-   - Decides the next action (tap, input, long press, back, or end)
-   - Executes up to 10 new steps
+For a retained branch point, GUIAug:
 
-4. **Assertion injection**: After exploration completes, the system automatically injects an assertion to verify the final state of the mutated path.
+1. Reuses the seed prefix that reaches the branch context.
+2. Formulates and persists a branch goal from the scenario abstraction, nearby dependencies, current GUI evidence, and reference suffix.
+3. Extracts and ranks interactive widgets against the branch goal.
+4. Generates one executable action at a time and validates its target/action preconditions before execution.
+5. Monitors progress as `SATISFIED` or `ONGOING` under the bounded exploration budget.
+6. Stops at the configured exploration budget and attaches an assertion grounded in the terminal screenshot and generated continuation.
+
+Each derived script stores `augmentation_context.json`, including its seed script, source operation, goal, generated operations, status, and assertion evidence. Input-aware scripts can be replay-validated through `GET /mutate/input_complete/{script_id}/{device_id}`; infeasible original suffixes are replaced by one bounded adapted continuation and labeled `ALTERNATIVE`.
 
 ---
 
@@ -164,6 +176,7 @@ GUIAug/
 │       │   ├── record_controller.py             #   Script recording & replay
 │       │   └── mutate_controller.py             #   Script mutation & augmentation
 │       ├── services/                            # Business logic (abstract interfaces)
+│       │   ├── augmentation_artifacts.py         #   Semantic-view/context persistence and validation
 │       │   ├── device_service.py                #   Device interaction abstraction
 │       │   ├── script_service.py                #   Script CRUD & recording logic
 │       │   ├── image_service.py                 #   Image processing & widget matching
@@ -173,7 +186,7 @@ GUIAug/
 │       │       ├── device_service_impl_adb.py   #     ADB-based device control
 │       │       ├── script_service_impl_adb.py   #     Script service for ADB devices
 │       │       ├── image_service_impl.py        #     OpenCV + LLM image processing
-│       │       └── mutation_service_impl_adb.py #     LLM-driven mutation engine
+│       │       └── mutation_service_impl_adb.py #     Paper-aligned augmentation modules
 │       ├── models/                              # Data models
 │       │   ├── db_models.py                     #   SQLAlchemy ORM models (Script, Operation)
 │       │   ├── schemas.py                       #   Pydantic schemas

@@ -27,6 +27,10 @@ class ScriptService(ABC):
         ...
 
     @abstractmethod
+    def record_back(self, db: Session, script_id: str, script_folder: str, screen_path: str, ui_dump_path: str, package: str, activity: str, op_prev: Optional[str], op_next: Optional[str], intent: str = ""):
+        ...
+
+    @abstractmethod
     def record_oracle(self, db: Session, script_id: str, script_folder: str, screen_path: str, assertion_info: Dict[str, Any], op_prev: Optional[str], op_next: Optional[str], intent: str = ""):
         ...
 
@@ -57,4 +61,3 @@ class ScriptService(ABC):
     @abstractmethod
     def describe_script_in_natural_language(self, db: Session, script_id: str):
         ...
-

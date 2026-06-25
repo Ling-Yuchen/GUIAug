@@ -7,7 +7,7 @@ from app.services.script_service import ScriptService
 from app.services.implements.image_service_impl import ImageServiceImpl
 # from app.services.implements.device_service_impl_hdc import HarmonyDeviceServiceImpl
 # from app.services.implements.script_service_impl_hdc import HarmonyScriptServiceImpl
-from app.services.implements.mutation_service_impl_hdc import MutationServiceImpl
+from app.services.implements.mutation_service_impl_adb import MutationServiceImpl
 
 
 img_service = ImageServiceImpl()
@@ -29,4 +29,3 @@ def get_script_service() -> ScriptService:
 
 def get_mutation_service() -> MutationService:
     return mutation_service
-
