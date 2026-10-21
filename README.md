@@ -1,6 +1,6 @@
 # GUIAug
 
-Implementation of the paper **“Seed-based GUI Test Script Augmentation with Input Variation and Branch Exploration.”** GUIAug treats an existing replayable GUI test script as a **seed script** and derives executable, seed-local variant test cases through **Script Interpretation**, **Input-Aware Augmentation**, and **Intent-Aware Augmentation**.
+Implementation of the paper **“Semantics-Anchored GUI Test Script Augmentation via Input Variation and Branch Exploration.”** GUIAug treats an existing replayable GUI test script as a **seed script** and derives executable, seed-local variant test cases through **Script Interpretation**, **Input-Aware Augmentation**, and **Intent-Aware Augmentation**.
 
 ---
 
@@ -11,7 +11,7 @@ Implementation of the paper **“Seed-based GUI Test Script Augmentation with In
 - [Core Features](#core-features)
   - [Script Recording](#1-script-recording)
   - [Intelligent Replay](#2-intelligent-replay)
-  - [Seed-based GUI Test Script Augmentation](#3-seed-based-gui-test-script-augmentation)
+  - [Semantics-Anchored GUI Test Script Augmentation](#3-semantics-anchored-gui-test-script-augmentation)
 - [Project Structure](#project-structure)
 - [Subject Apps](#subject-apps)
 - [Getting Started](#getting-started)
@@ -111,7 +111,7 @@ The system uses a **three-tier matching strategy** (in priority order):
 
 Each match result is validated using `check_match_validity` to ensure spatial consistency before execution.
 
-### 3. Seed-based GUI Test Script Augmentation
+### 3. Semantics-Anchored GUI Test Script Augmentation
 
 The augmentation workflow follows the three modules described in the paper.
 
